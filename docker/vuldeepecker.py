@@ -102,6 +102,7 @@ def main():
     cache_dir = Path(sys.argv[4])
     result_dir = Path(sys.argv[5])
     seed = int(sys.argv[6])
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     vector_length = 50
     # TODO subsample 90% of training data

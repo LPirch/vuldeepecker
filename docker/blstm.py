@@ -29,7 +29,7 @@ Parameters, as from the VulDeePecker paper:
     Epochs: 4
 """
 class BLSTM:
-    def __init__(self, X_train, y_train, X_test, y_test, result_dir: Path, name="", batch_size=64, subsample_train=1.0, seed=42):
+    def __init__(self, X_train, y_train, X_test, y_test, result_dir: Path, name="", batch_size=64):
         self.X_train = np.stack(X_train)
         self.X_test = np.stack(X_test)
         self.y_train = y_train
@@ -73,15 +73,11 @@ class BLSTM:
     def test(self):
         self.model.load_weights(self.weights_file)
         values = self.model.evaluate(self.X_test, self.y_test, batch_size=self.batch_size)
-        print("Accuracy is...", values[1])
         predictions = (self.model.predict(self.X_test, batch_size=self.batch_size)).round()
         report = classification_report(np.argmax(self.y_test, axis=1), np.argmax(predictions, axis=1), output_dict=True)
         report = {key: val.item() if isinstance(val, np.ndarray) else val for key, val in report.items()}
         tn, fp, fn, tp = confusion_matrix(np.argmax(self.y_test, axis=1), np.argmax(predictions, axis=1)).ravel()
-        print('False positive rate is...', fp / (fp + tn))
-        print('False negative rate is...', fn / (fn + tp))
         recall = tp / (tp + fn)
-        print('True positive rate is...', recall)
         precision = tp / (tp + fp)
         print('Precision is...', precision)
         print('F1 score is...', (2 * precision * recall) / (precision + recall))

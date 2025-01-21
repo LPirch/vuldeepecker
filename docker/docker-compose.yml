@@ -1,0 +1,24 @@
+services:
+  vuldeepecker:
+    container_name: vuldeepecker
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/vuldeepecker
+      - vuldeepecker-raw:/vuldeepecker/data/raw
+      - vuldeepecker-results:/vuldeepecker/data/results
+    ipc: host
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 4
+    #           capabilities: [gpu]
+
+volumes:
+  vuldeepecker-raw:
+    external: true
+  vuldeepecker-results:
+    external: true
