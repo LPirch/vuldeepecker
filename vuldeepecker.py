@@ -8,6 +8,7 @@ import pandas
 from clean_gadget import clean_gadget
 from vectorize_gadget import GadgetVectorizer
 from blstm import BLSTM
+from rich.progress import track
 
 """
 Parses gadget file to find individual gadgets
@@ -60,29 +61,21 @@ Convert list of dictionaries to dataframe when all gadgets are processed
 """
 def get_vectors_df(gadget_stream, vector_length=100):
     gadgets = []
-    count = 0
     vectorizer = GadgetVectorizer(vector_length)
+    print("Collecting gadgets...")
     for gadget, val in gadget_stream:
-        count += 1
-        print("Collecting gadgets...", count, end="\r")
         vectorizer.add_gadget(gadget)
         row = {"gadget" : gadget, "val" : val}
         gadgets.append(row)
     print('Found {} forward slices and {} backward slices'
           .format(vectorizer.forward_slices, vectorizer.backward_slices))
-    print()
     print("Training model...", end="\r")
     vectorizer.train_model()
-    print()
     vectors = []
-    count = 0
-    for gadget in gadgets:
-        count += 1
-        print("Processing gadgets...", count, end="\r")
+    for gadget in track(gadgets):
         vector = vectorizer.vectorize(gadget["gadget"])
         row = {"vector" : vector, "val" : gadget["val"]}
         vectors.append(row)
-    print()
     df = pandas.DataFrame(vectors)
     return df
 
@@ -100,13 +93,15 @@ Gets filename, either loads vector DataFrame if exists or creates it if not
 Instantiate neural network, pass data to it, train, test, print accuracy
 """
 def main():
-    if len(sys.argv) != 5:
-        print("Usage: python vuldeepecker.py [train_file] [val_file] [test_file] [cache_dir]")
+    if len(sys.argv) != 7:
+        print("Usage: python vuldeepecker.py [train_file] [val_file] [test_file] [cache_dir] [result_dir] [seed]")
         exit()
     train_file = Path(sys.argv[1])
     val_file = Path(sys.argv[2])
     test_file = Path(sys.argv[3])
     cache_dir = Path(sys.argv[4])
+    result_dir = Path(sys.argv[5])
+    seed = int(sys.argv[6])
 
     vector_length = 50
     # TODO subsample 90% of training data
@@ -115,7 +110,7 @@ def main():
         "val": process_data(parse_file(val_file), cache_dir / "val_gadget_vectors.pkl", vector_length),
         "test": process_data(parse_file(test_file), cache_dir / "test_gadget_vectors.pkl", vector_length),
     }
-    blstm = BLSTM(data["train"][0], data["train"][1], data["test"][0], data["test"][1], cache_dir / "model", name="vuldeepecker-blstm")
+    blstm = BLSTM(data["train"][0], data["train"][1], data["test"][0], data["test"][1], result_dir, name="vuldeepecker-blstm", subsample_train=0.9, seed=seed)
     blstm.train()
     blstm.test()
 
