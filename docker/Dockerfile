@@ -9,4 +9,6 @@ COPY . /vuldeepecker
 
 WORKDIR /vuldeepecker
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m venv .venv && \
+    source .venv/bin/activate && \
+    pip install --no-cache-dir -r requirements.txt

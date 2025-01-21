@@ -5,6 +5,7 @@ import sys
 import os
 from pathlib import Path
 import pandas
+import json
 from clean_gadget import clean_gadget
 from vectorize_gadget import GadgetVectorizer
 from blstm import BLSTM
@@ -48,6 +49,13 @@ def parse_stream(stream):
             gadget = []
         else:
             gadget.append(stripped)
+
+
+def parse_jsonl_file(filename):
+    with open(filename, "r", encoding="utf8") as file:
+        for row in file:
+            data = json.loads(row)
+            yield clean_gadget(data["func"]), data["target"]
 
 """
 Uses gadget file parser to get gadgets and vulnerability indicators
@@ -93,25 +101,25 @@ Gets filename, either loads vector DataFrame if exists or creates it if not
 Instantiate neural network, pass data to it, train, test, print accuracy
 """
 def main():
-    if len(sys.argv) != 7:
-        print("Usage: python vuldeepecker.py [train_file] [val_file] [test_file] [cache_dir] [result_dir] [seed]")
+    if len(sys.argv) != 6:
+        print("Usage: python vuldeepecker.py [train_file] [val_file] [test_file] [out_dir] [seed]")
         exit()
     train_file = Path(sys.argv[1])
     val_file = Path(sys.argv[2])
     test_file = Path(sys.argv[3])
-    cache_dir = Path(sys.argv[4])
-    result_dir = Path(sys.argv[5])
+    out_dir = Path(sys.argv[5])
     seed = int(sys.argv[6])
+    cache_dir = "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     vector_length = 50
-    # TODO subsample 90% of training data
     data = {
-        "train": process_data(parse_file(train_file), cache_dir / "train_gadget_vectors.pkl", vector_length),
-        "val": process_data(parse_file(val_file), cache_dir / "val_gadget_vectors.pkl", vector_length),
-        "test": process_data(parse_file(test_file), cache_dir / "test_gadget_vectors.pkl", vector_length),
+        "train": process_data(parse_jsonl_file(train_file), cache_dir / "train_gadget_vectors.pkl", vector_length),
+        "val": process_data(parse_jsonl_file(val_file), cache_dir / "val_gadget_vectors.pkl", vector_length),
+        "test": process_data(parse_jsonl_file(test_file), cache_dir / "test_gadget_vectors.pkl", vector_length),
     }
-    blstm = BLSTM(data["train"][0], data["train"][1], data["test"][0], data["test"][1], result_dir, name="vuldeepecker-blstm", subsample_train=0.9, seed=seed)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    blstm = BLSTM(data["train"][0], data["train"][1], data["test"][0], data["test"][1], out_dir, name="vuldeepecker-blstm", subsample_train=0.9, seed=seed)
     blstm.train()
     blstm.test()
 
