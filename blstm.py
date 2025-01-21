@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import warnings
+from pathlib import Path
 
 from keras.utils import to_categorical
 from sklearn import metrics
@@ -28,25 +29,17 @@ Parameters, as from the VulDeePecker paper:
     Epochs: 4
 """
 class BLSTM:
-    def __init__(self, data, name="", batch_size=64):
-        vectors = np.stack(data.iloc[:, 1].values)
-        labels = data.iloc[:, 0].values
-        positive_idxs = np.where(labels == 1)[0]
-        negative_idxs = np.where(labels == 0)[0]
-        undersampled_negative_idxs = np.random.choice(negative_idxs, len(positive_idxs), replace=False)
-        resampled_idxs = np.concatenate([positive_idxs, undersampled_negative_idxs])
-
-        X_train, X_test, y_train, y_test = train_test_split(vectors[resampled_idxs, ], labels[resampled_idxs],
-                                                            test_size=0.2, stratify=labels[resampled_idxs])
-        self.X_train = X_train
-        self.X_test = X_test
+    def __init__(self, X_train, y_train, X_test, y_test, model_dir: Path, name="", batch_size=64):
+        self.X_train = np.stack(X_train)
+        self.X_test = np.stack(X_test)
         self.y_train = to_categorical(y_train)
         self.y_test = to_categorical(y_test)
         self.name = name
+        self.model_dir = model_dir
         self.batch_size = batch_size
-        self.class_weight = compute_class_weight(class_weight='balanced', classes=[0, 1], y=labels)
+        self.class_weight = {i: weight for i, weight in enumerate(compute_class_weight(class_weight='balanced', classes=np.array([0, 1]), y=y_train))}
         model = Sequential()
-        model.add(Bidirectional(LSTM(300), input_shape=(vectors.shape[1], vectors.shape[2])))
+        model.add(Bidirectional(LSTM(300), input_shape=(self.X_train.shape[1], self.X_train.shape[2])))
         model.add(Dense(300))
         model.add(LeakyReLU())
         model.add(Dropout(0.5))
@@ -55,7 +48,7 @@ class BLSTM:
         model.add(Dropout(0.5))
         model.add(Dense(2, activation='softmax'))
         # Lower learning rate to prevent divergence
-        adamax = Adamax(lr=0.002)
+        adamax = Adamax(learning_rate=0.002)
         model.compile(adamax, 'categorical_crossentropy', metrics=['accuracy'])
         self.model = model
 
@@ -64,14 +57,14 @@ class BLSTM:
     """
     def train(self):
         self.model.fit(self.X_train, self.y_train, batch_size=self.batch_size, epochs=4, class_weight=self.class_weight)
-        self.model.save_weights(self.name + "_model.h5")
+        self.model.save_weights(self.model_dir / (self.name + "_model.h5"))
 
     """
     Tests accuracy of model based on test data
     Loads weights from file if no weights are attached to model object
     """
     def test(self):
-        self.model.load_weights(self.name + "_model.h5")
+        self.model.load_weights(self.model_dir / (self.name + "_model.h5"))
         values = self.model.evaluate(self.X_test, self.y_test, batch_size=self.batch_size)
         print("Accuracy is...", values[1])
         predictions = (self.model.predict(self.X_test, batch_size=self.batch_size)).round()
