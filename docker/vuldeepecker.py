@@ -107,9 +107,9 @@ def main():
     train_file = Path(sys.argv[1])
     val_file = Path(sys.argv[2])
     test_file = Path(sys.argv[3])
-    out_dir = Path(sys.argv[5])
-    seed = int(sys.argv[6])
-    cache_dir = "cache"
+    out_dir = Path(sys.argv[4])
+    seed = int(sys.argv[5])
+    cache_dir = Path("cache")
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     vector_length = 50
